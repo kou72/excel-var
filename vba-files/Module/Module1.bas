@@ -59,6 +59,9 @@ Sub CreateAndModifySheetsFromVarList()
         Next j
 NextRow:
     Next i
+    
+    ' マスタシートをアクティブにする
+    wsMaster.Activate
 End Sub
 
 Sub DeleteSheetsFromVarList()
