@@ -1,31 +1,18 @@
 Attribute VB_Name = "Module1"
 
-Sub RunBothProcesses()
+Sub CreateAndModifySheetsFromVarList()
     ' スクリーン更新をオフにする
     Application.ScreenUpdating = False
 
-    ' プロセスを実行する
+    ' 既存シートを削除
     Call DeleteSheetsFromVarList
-    Call CreateAndModifySheetsFromVarList
 
-    ' スクリーン更新をオンに戻す
-    Application.ScreenUpdating = True
-End Sub
-
-Sub CreateAndModifySheetsFromVarList()
     Dim wsMaster As Worksheet
     Dim wsTemplate As Worksheet
-    Dim wsNew As Worksheet
-    Dim rng As Range
     Dim i As Long
-    Dim j As Long
     Dim templateName As String
     Dim outputName As String
     Dim outputType As String
-    Dim replaceFrom As String
-    Dim replaceTo As String
-    Dim textOutput As String
-    Dim fileName As String
 
     ' マスタシートを指定
     Set wsMaster = ThisWorkbook.Sheets("マスタ")
@@ -50,67 +37,9 @@ Sub CreateAndModifySheetsFromVarList()
         Set wsTemplate = ThisWorkbook.Sheets(templateName)
         
         If outputType = "textFile" Then
-
-            ' テンプレートシートの内容をテキストに変換
-            For Each rng In wsTemplate.UsedRange
-                textOutput = textOutput & rng.Value & vbTab
-                If rng.Column = wsTemplate.UsedRange.Columns.Count Then
-                    textOutput = textOutput & vbCrLf
-                End If
-            Next rng
-            
-            ' 4列目以降の列をループ
-            For j = 4 To tbl.ListColumns.Count
-                ' 変換元と変換先の文字列を取得
-                replaceFrom = tbl.HeaderRowRange.Cells(1, j).Value
-                replaceTo = tbl.DataBodyRange.Cells(i, j).Value
-                
-                ' 変換元と変換先が空でない場合のみ置換を行う
-                If Not IsEmpty(replaceFrom) And Not IsEmpty(replaceTo) Then
-                    ' テキスト内のreplaceFromをreplaceToに置換
-                    textOutput = Replace(textOutput, replaceFrom, replaceTo)
-                End If
-            Next j
-            
-            ' テキストファイル名を設定
-            fileName = ThisWorkbook.Path & "\" & outputName
-            
-            ' テキストファイルに出力
-            Open fileName For Output As #1
-            Print #1, textOutput
-            Close #1
-            
-            ' テキスト出力変数をリセット
-            textOutput = ""
-
+            ProcessAsTextFile wsTemplate, tbl, i, outputName
         Else
-
-            ' シートをコピーして新しいシートを作成
-            wsTemplate.Copy After:=ThisWorkbook.Sheets(ThisWorkbook.Sheets.Count)
-            
-            ' 新しいシートを選択して名前を変更
-            ThisWorkbook.Sheets(ThisWorkbook.Sheets.Count).Name = outputName
-            
-            ' 新しいシートを変数にセット
-            Set wsNew = ThisWorkbook.Sheets(outputName)
-            
-            ' 4列目以降の列をループ
-            For j = 4 To tbl.ListColumns.Count
-                ' 変換元と変換先の文字列を取得
-                replaceFrom = tbl.HeaderRowRange.Cells(1, j).Value
-                replaceTo = tbl.DataBodyRange.Cells(i, j).Value
-                
-                ' 変換元と変換先が空でない場合のみ置換を行う
-                If Not IsEmpty(replaceFrom) And Not IsEmpty(replaceTo) Then
-                    ' シート内の全てのセルを検索し、replaceFromをreplaceToに置換
-                    For Each rng In wsNew.UsedRange
-                        If rng.Value <> "" Then
-                            rng.Value = Replace(rng.Value, replaceFrom, replaceTo)
-                        End If
-                    Next rng
-                End If
-            Next j
-
+            ProcessAsWorksheet wsTemplate, tbl, i, outputName
         End If
 
 NextRow:
@@ -118,9 +47,90 @@ NextRow:
     
     ' マスタシートをアクティブにする
     wsMaster.Activate
+
+    ' スクリーン更新をオンに戻す
+    Application.ScreenUpdating = True
+End Sub
+
+Sub ProcessAsTextFile(wsTemplate As Worksheet, tbl As ListObject, i As Long, outputName As String)
+    Dim rng As Range
+    Dim j As Long
+    Dim replaceFrom As String
+    Dim replaceTo As String
+    Dim textOutput As String
+    Dim fileName As String
+    
+    ' テンプレートシートの内容をテキストに変換
+    For Each rng In wsTemplate.UsedRange
+        textOutput = textOutput & rng.Value & vbTab
+        If rng.Column = wsTemplate.UsedRange.Columns.Count Then
+            textOutput = textOutput & vbCrLf
+        End If
+    Next rng
+    
+    ' 4列目以降の列をループ
+    For j = 4 To tbl.ListColumns.Count
+        ' 変換元と変換先の文字列を取得
+        replaceFrom = tbl.HeaderRowRange.Cells(1, j).Value
+        replaceTo = tbl.DataBodyRange.Cells(i, j).Value
+        
+        ' 変換元と変換先が空でない場合のみ置換を行う
+        If Not IsEmpty(replaceFrom) And Not IsEmpty(replaceTo) Then
+            ' テキスト内のreplaceFromをreplaceToに置換
+            textOutput = Replace(textOutput, replaceFrom, replaceTo)
+        End If
+    Next j
+    
+    ' テキストファイル名を設定
+    fileName = ThisWorkbook.Path & "\" & outputName
+    
+    ' テキストファイルに出力
+    Open fileName For Output As #1
+    Print #1, textOutput
+    Close #1
+    
+    ' テキスト出力変数をリセット
+    textOutput = ""
+End Sub
+
+Sub ProcessAsWorksheet(wsTemplate As Worksheet, tbl As ListObject, i As Long, outputName As String)
+    Dim wsNew As Worksheet
+    Dim rng As Range
+    Dim j As Long
+    Dim replaceFrom As String
+    Dim replaceTo As String
+    
+    ' シートをコピーして新しいシートを作成
+    wsTemplate.Copy After:=ThisWorkbook.Sheets(ThisWorkbook.Sheets.Count)
+    
+    ' 新しいシートを選択して名前を変更
+    ThisWorkbook.Sheets(ThisWorkbook.Sheets.Count).Name = outputName
+    
+    ' 新しいシートを変数にセット
+    Set wsNew = ThisWorkbook.Sheets(outputName)
+    
+    ' 4列目以降の列をループ
+    For j = 4 To tbl.ListColumns.Count
+        ' 変換元と変換先の文字列を取得
+        replaceFrom = tbl.HeaderRowRange.Cells(1, j).Value
+        replaceTo = tbl.DataBodyRange.Cells(i, j).Value
+        
+        ' 変換元と変換先が空でない場合のみ置換を行う
+        If Not IsEmpty(replaceFrom) And Not IsEmpty(replaceTo) Then
+            ' シート内の全てのセルを検索し、replaceFromをreplaceToに置換
+            For Each rng In wsNew.UsedRange
+                If rng.Value <> "" Then
+                    rng.Value = Replace(rng.Value, replaceFrom, replaceTo)
+                End If
+            Next rng
+        End If
+    Next j
 End Sub
 
 Sub DeleteSheetsFromVarList()
+    ' スクリーン更新をオフにする
+    Application.ScreenUpdating = False
+
     Dim wsMaster As Worksheet
     Dim i As Long
     Dim outputName As String
@@ -147,6 +157,9 @@ Sub DeleteSheetsFromVarList()
         
 NextRow:
     Next i
+
+    ' スクリーン更新をオンに戻す
+    Application.ScreenUpdating = True
 End Sub
 
 Sub DeleteSheet(sheetName As String)
