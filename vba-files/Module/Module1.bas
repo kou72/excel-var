@@ -1,32 +1,54 @@
 Attribute VB_Name = "Module1"
-Sub sample()
-  MsgBox "hello vba"
-End Sub
-
-Sub CreateAndModifySheets()
-    Dim i As Integer
-    Dim ws As Worksheet
+Sub CreateAndModifySheetsFromVarList()
+    Dim wsMaster As Worksheet
+    Dim wsTemplate As Worksheet
+    Dim wsNew As Worksheet
     Dim rng As Range
+    Dim i As Long
+    Dim j As Long
+    Dim templateName As String
+    Dim outputName As String
+    Dim replaceFrom As String
+    Dim replaceTo As String
+
+    ' ƒ}ƒXƒ^ƒV[ƒg‚ğw’è
+    Set wsMaster = ThisWorkbook.Sheets("ƒ}ƒXƒ^")
     
-    ' å…ƒã®ã‚·ãƒ¼ãƒˆã‚’æŒ‡å®š
-    Set ws = ThisWorkbook.Sheets("Sheet1")
+    ' varlistƒe[ƒuƒ‹‚ğw’è
+    Dim tbl As ListObject
+    Set tbl = wsMaster.ListObjects("varlist")
     
-    ' ç¹°ã‚Šè¿”ã—å‡¦ç†ã‚’é–‹å§‹
-    For i = 1 To 3
-        ' ã‚·ãƒ¼ãƒˆã‚’ã‚³ãƒ”ãƒ¼ã—ã¦æ–°ã—ã„ã‚·ãƒ¼ãƒˆã‚’ä½œæˆ
-        ws.Copy After:=ThisWorkbook.Sheets(ThisWorkbook.Sheets.Count)
+    ' varlist‚ÌŠes‚ğƒ‹[ƒv
+    For i = 1 To tbl.ListRows.Count
+        ' ƒeƒ“ƒvƒŒ[ƒgƒV[ƒg–¼‚Æo—Í–¼‚ğæ“¾
+        templateName = tbl.ListColumns("ƒeƒ“ƒvƒŒ[ƒg").DataBodyRange.Cells(i).Value
+        outputName = tbl.ListColumns("o—Í–¼").DataBodyRange.Cells(i).Value
         
-        ' æ–°ã—ã„ã‚·ãƒ¼ãƒˆã‚’é¸æŠã—ã¦åå‰ã‚’å¤‰æ›´
-        ThisWorkbook.Sheets(ThisWorkbook.Sheets.Count).Name = "test-sheet" & i
+        ' ƒeƒ“ƒvƒŒ[ƒgƒV[ƒg‚ğw’è
+        Set wsTemplate = ThisWorkbook.Sheets(templateName)
         
-        ' æ–°ã—ã„ã‚·ãƒ¼ãƒˆã‚’å¤‰æ•°ã«ã‚»ãƒƒãƒˆ
-        Set wsNew = ThisWorkbook.Sheets("test-sheet" & i)
+        ' ƒV[ƒg‚ğƒRƒs[‚µ‚ÄV‚µ‚¢ƒV[ƒg‚ğì¬
+        wsTemplate.Copy After:=ThisWorkbook.Sheets(ThisWorkbook.Sheets.Count)
         
-        ' ã‚·ãƒ¼ãƒˆå†…ã®å…¨ã¦ã®ã‚»ãƒ«ã‚’æ¤œç´¢ã—ã€$var ã‚’ test1 ã«ç½®æ›
-        For Each rng In wsNew.UsedRange
-            If rng.Value <> "" Then
-                rng.Value = Replace(rng.Value, "$var", "test1")
-            End If
-        Next rng
+        ' V‚µ‚¢ƒV[ƒg‚ğ‘I‘ğ‚µ‚Ä–¼‘O‚ğ•ÏX
+        ThisWorkbook.Sheets(ThisWorkbook.Sheets.Count).Name = outputName
+        
+        ' V‚µ‚¢ƒV[ƒg‚ğ•Ï”‚ÉƒZƒbƒg
+        Set wsNew = ThisWorkbook.Sheets(outputName)
+        
+        ' 4—ñ–ÚˆÈ~‚Ì—ñ‚ğƒ‹[ƒv
+        For j = 4 To tbl.ListColumns.Count
+            ' •ÏŠ·Œ³‚Æ•ÏŠ·æ‚Ì•¶š—ñ‚ğæ“¾
+            replaceFrom = tbl.HeaderRowRange.Cells(1, j).Value
+            replaceTo = tbl.DataBodyRange.Cells(i, j).Value
+            
+            ' ƒV[ƒg“à‚Ì‘S‚Ä‚ÌƒZƒ‹‚ğŒŸõ‚µAreplaceFrom‚ğreplaceTo‚É’uŠ·
+            For Each rng In wsNew.UsedRange
+                If rng.Value <> "" Then
+                    rng.Value = Replace(rng.Value, replaceFrom, replaceTo)
+                End If
+            Next rng
+        Next j
     Next i
 End Sub
+
