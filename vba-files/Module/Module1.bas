@@ -35,6 +35,13 @@ Sub CreateAndModifySheetsFromVarList()
     ' varlistの各行をループ
     Dim i As Long
     For i = 2 To tbl.ListRows.Count
+        ' "無効flag"が空白でない場合、この行の処理をスキップ
+        Dim disableFlag As String
+        disableFlag = tbl.Range.Cells(i, 1).Offset(0, -1).Value
+        If disableFlag <> "" Then
+            GoTo NextRow
+        End If
+
         ' テンプレートシート名と出力名を取得
         Dim outputName As String
         outputName = tbl.ListColumns(1).DataBodyRange.Cells(i).Value
@@ -99,6 +106,13 @@ Sub ProcessAsTextFile(wsTemplate As Worksheet, tbl As ListObject, i As Long, out
     ' 2列目以降の列をループ
     Dim j As Long
     For j = 2 To tbl.ListColumns.Count
+        ' "無効flag"が空白でない場合、この列の処理をスキップ
+        Dim disableFlag As String
+        disableFlag = tbl.DataBodyRange.Cells(1, j).Offset(-1, 0).Value
+        If disableFlag <> "" Then
+            GoTo NextColumn
+        End If
+        
         ' 変換元と変換先の文字列を取得
         Dim replaceFrom As String
         Dim replaceTo As String
@@ -110,6 +124,7 @@ Sub ProcessAsTextFile(wsTemplate As Worksheet, tbl As ListObject, i As Long, out
             ' テキスト内のreplaceFromをreplaceToに置換
             textOutput = Replace(textOutput, replaceFrom, replaceTo)
         End If
+    NextColumn:
     Next j
     
     ' テキストファイル名を設定
@@ -135,7 +150,6 @@ Sub ProcessAsTextFile(wsTemplate As Worksheet, tbl As ListObject, i As Long, out
     textOutput = ""
 End Sub
 
-
 Sub ProcessAsWorksheet(wsTemplate As Worksheet, tbl As ListObject, i As Long, outputName As String, filePath As String)
     ' 指定されたパスのWorkbookを開く
     Dim wbTarget As Workbook
@@ -160,6 +174,13 @@ Sub ProcessAsWorksheet(wsTemplate As Worksheet, tbl As ListObject, i As Long, ou
     ' 2列目以降の列をループ
     Dim j As Long
     For j = 2 To tbl.ListColumns.Count
+        ' "無効flag"が空白でない場合、この列の処理をスキップ
+        Dim disableFlag As String
+        disableFlag = tbl.DataBodyRange.Cells(1, j).Offset(-1, 0).Value
+        If disableFlag <> "" Then
+            GoTo NextColumn
+        End If
+
         ' 変換元と変換先の文字列を取得
         Dim replaceFrom As String
         Dim replaceTo As String
@@ -176,6 +197,7 @@ Sub ProcessAsWorksheet(wsTemplate As Worksheet, tbl As ListObject, i As Long, ou
                 End If
             Next rng
         End If
+    NextColumn:
     Next j
 End Sub
 
@@ -255,6 +277,6 @@ Sub SetSheetNamesAsDropdownOptions()
     rng.Validation.Add Type:=xlValidateList, Formula1:=strList
 
     ' 処理結果をメッセージボックスで表示
-    MsgBox "以下シート名をテンプレートのリストに設定しました。" & vbCrLf & vbCrLf & Join(sheetNames, vbCrLf), vbInformation, "完了"
+    MsgBox "以下シート名をテンプレートリストに設定しました。" & vbCrLf & vbCrLf & Join(sheetNames, vbCrLf), vbInformation, "完了"
 End Sub
 
