@@ -16,7 +16,6 @@ Sub CreateAndModifySheetsFromVarList()
 
     Dim filePath As String
     filePath = ThisWorkbook.Names("path").RefersToRange.Value
-    If Not CheckFilePath(filePath, outputType) Then Exit Sub
 
     Dim tbl As ListObject
     Set tbl = wsMaster.ListObjects("varlist")
@@ -29,7 +28,10 @@ Sub CreateAndModifySheetsFromVarList()
         "出力先：" & filePath & vbCrLf & vbCrLf & _
         "よろしいですか？"
     If MsgBox(msg, vbYesNo + vbQuestion, "確認") = vbNo Then Exit Sub
-    
+
+    ' 出力先が有効なフォルダまたはExcelファイルを指しているか確認
+    If Not CheckFilePath(filePath, outputType) Then Exit Sub
+
     ' varlistの各行をループ
     Dim i As Long
     For i = 2 To tbl.ListRows.Count
@@ -70,7 +72,7 @@ Function CheckFilePath(filePath As String, outputType As String) As Boolean
             MsgBox "選択されたファイルが無効です。有効なExcelファイルを選択してください。", vbCritical, "エラー"
             CheckFilePath = False
         Else ' filePathが有効ならTrueを返す
-            wb.Close False
+            ' wb.Close False
             CheckFilePath = True
         End If
     ElseIf outputType = "textFile" Then ' フォルダのチェック
