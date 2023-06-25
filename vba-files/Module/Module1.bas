@@ -20,6 +20,15 @@ Sub CreateAndModifySheetsFromVarList()
 
     Dim tbl As ListObject
     Set tbl = wsMaster.ListObjects("varlist")
+
+    ' 実行前に確認メッセージを表示
+    Dim msg As String
+    msg = "以下の内容で処理を実行します。" & vbCrLf & vbCrLf & _
+        "テンプレートシート：" & templateName & vbCrLf & _
+        "出力形式：" & outputType & vbCrLf & _
+        "出力先：" & filePath & vbCrLf & vbCrLf & _
+        "よろしいですか？"
+    If MsgBox(msg, vbYesNo + vbQuestion, "確認") = vbNo Then Exit Sub
     
     ' varlistの各行をループ
     Dim i As Long
@@ -45,9 +54,6 @@ Sub CreateAndModifySheetsFromVarList()
 
     NextRow:
     Next i
-    
-    ' マスタシートをアクティブにする
-    ' wsMaster.Activate
 
     ' スクリーン更新をオンに戻す
     Application.ScreenUpdating = True
@@ -246,11 +252,7 @@ Sub SetSheetNamesAsDropdownOptions()
     strList = Join(sheetNames, ",")  ' 配列をカンマで連結した文字列に変換
     rng.Validation.Add Type:=xlValidateList, Formula1:=strList
 
-    ' 配列をメッセージボックスで表示
-    ' MsgBox Join(sheetNames, vbCrLf), vbInformation, "完了"
+    ' 処理結果をメッセージボックスで表示
     MsgBox "以下シート名をテンプレートのリストに設定しました。" & vbCrLf & vbCrLf & Join(sheetNames, vbCrLf), vbInformation, "完了"
-
-    ' データ検証のリストを通知
-    ' MsgBox "以下シート名をテンプレートのリストに設定しました。" & sheetNames , vbInformation, "完了"
 End Sub
 
