@@ -4,29 +4,25 @@ Sub CreateAndModifySheetsFromVarList()
     ' スクリーン更新をオフにする
     Application.ScreenUpdating = False
 
-    ' 既存シートを削除
-    Call DeleteSheetsFromVarList
-
+    ' マスタ情報をセット
     Dim wsMaster As Worksheet
-    Dim wsTemplate As Worksheet
-    Dim i As Long
-    Dim templateName As String
-    Dim outputName As String
-    Dim outputType As String
+    Set wsMaster = ActiveSheet
 
-    ' マスタシートを指定
-    Set wsMaster = ThisWorkbook.Sheets("マスタ")
-    
-    ' varlistテーブルを指定
+    Dim templateName As String
+    templateName = wsMaster.Range("template").Value
+
+    Dim outputType As String
+    outputType = wsMaster.Range("type").Value
+
     Dim tbl As ListObject
     Set tbl = wsMaster.ListObjects("varlist")
     
     ' varlistの各行をループ
-    For i = 1 To tbl.ListRows.Count
+    Dim i As Long
+    For i = 2 To tbl.ListRows.Count
         ' テンプレートシート名と出力名を取得
-        templateName = tbl.ListColumns("テンプレート").DataBodyRange.Cells(i).Value
-        outputName = tbl.ListColumns("出力名").DataBodyRange.Cells(i).Value
-        outputType = tbl.ListColumns("出力タイプ").DataBodyRange.Cells(i).Value
+        Dim outputName As String
+        outputName = tbl.ListColumns(1).DataBodyRange.Cells(i).Value
         
         ' outputNameが空白またはNothingなら次の行へ
         If IsEmpty(outputName) Or outputName = "" Then
@@ -34,6 +30,7 @@ Sub CreateAndModifySheetsFromVarList()
         End If
         
         ' テンプレートシートを指定
+        Dim wsTemplate As Worksheet
         Set wsTemplate = ThisWorkbook.Sheets(templateName)
         
         If outputType = "textFile" Then
@@ -42,7 +39,7 @@ Sub CreateAndModifySheetsFromVarList()
             ProcessAsWorksheet wsTemplate, tbl, i, outputName
         End If
 
-NextRow:
+    NextRow:
     Next i
     
     ' マスタシートをアクティブにする
@@ -68,10 +65,10 @@ Sub ProcessAsTextFile(wsTemplate As Worksheet, tbl As ListObject, i As Long, out
         End If
     Next rng
     
-    ' 4列目以降の列をループ
-    For j = 4 To tbl.ListColumns.Count
+    ' 2列目以降の列をループ
+    For j = 2 To tbl.ListColumns.Count
         ' 変換元と変換先の文字列を取得
-        replaceFrom = tbl.HeaderRowRange.Cells(1, j).Value
+        replaceFrom = tbl.DataBodyRange.Cells(1, j).Value
         replaceTo = tbl.DataBodyRange.Cells(i, j).Value
         
         ' 変換元と変換先が空でない場合のみ置換を行う
@@ -109,10 +106,10 @@ Sub ProcessAsWorksheet(wsTemplate As Worksheet, tbl As ListObject, i As Long, ou
     ' 新しいシートを変数にセット
     Set wsNew = ThisWorkbook.Sheets(outputName)
     
-    ' 4列目以降の列をループ
-    For j = 4 To tbl.ListColumns.Count
+    ' 2列目以降の列をループ
+    For j = 2 To tbl.ListColumns.Count
         ' 変換元と変換先の文字列を取得
-        replaceFrom = tbl.HeaderRowRange.Cells(1, j).Value
+        replaceFrom = tbl.DataBodyRange.Cells(1, j).Value
         replaceTo = tbl.DataBodyRange.Cells(i, j).Value
         
         ' 変換元と変換先が空でない場合のみ置換を行う
@@ -127,53 +124,32 @@ Sub ProcessAsWorksheet(wsTemplate As Worksheet, tbl As ListObject, i As Long, ou
     Next j
 End Sub
 
-Sub DeleteSheetsFromVarList()
-    ' スクリーン更新をオフにする
-    Application.ScreenUpdating = False
+Sub SelectFileOrFolderAndWritePath()
+    ' "type"という名前のセルの内容を取得
+    Dim selectType As Range
+    Set selectType = ThisWorkbook.Names("type").RefersToRange
 
-    Dim wsMaster As Worksheet
-    Dim i As Long
-    Dim outputName As String
-    
-    ' マスタシートを指定
-    Set wsMaster = ThisWorkbook.Sheets("マスタ")
-    
-    ' varlistテーブルを指定
-    Dim tbl As ListObject
-    Set tbl = wsMaster.ListObjects("varlist")
-    
-    ' varlistの各行をループ
-    For i = 1 To tbl.ListRows.Count
-        ' 出力名を取得
-        outputName = tbl.ListColumns("出力名").DataBodyRange.Cells(i).Value
-        
-        ' 出力名が空白またはNothingなら次の行へ
-        If IsEmpty(outputName) Or outputName = "" Then
-            GoTo NextRow
-        End If
-        
-        ' 出力名に該当するシートを削除
-        DeleteSheet outputName
-        
-NextRow:
-    Next i
-
-    ' スクリーン更新をオンに戻す
-    Application.ScreenUpdating = True
-End Sub
-
-Sub DeleteSheet(sheetName As String)
-    Dim ws As Worksheet
-    
-    ' シートの存在確認
-    On Error Resume Next
-    Set ws = ThisWorkbook.Sheets(sheetName)
-    On Error GoTo 0
-    
-    ' シートが存在する場合、削除
-    If Not ws Is Nothing Then
-        Application.DisplayAlerts = False
-        ws.Delete
-        Application.DisplayAlerts = True
+    ' "type"の内容に基づいてFileDialogのタイプを設定
+    Dim fd As FileDialog
+    If selectType.Value = "sheet" Then
+        Set fd = Application.FileDialog(msoFileDialogFilePicker)
+    ElseIf selectType.Value = "textFile" Then
+        Set fd = Application.FileDialog(msoFileDialogFolderPicker)
+    Else
+        MsgBox "名前付きセル 'type' の値が無効です"
+        Exit Sub
     End If
+
+    ' ダイアログを表示し、選択したパスを取得
+    Dim selectedPath As String
+    With fd.Title = "Select Path".AllowMultiSelect = False
+        If .Show = True Then
+            selectedPath = .SelectedItems(1)
+        End If
+    End With
+
+    ' 選択したパスを "path" という名前のセルに書き込む
+    Dim rng As Range
+    Set rng = ThisWorkbook.Names("path").RefersToRange
+    rng.Value = selectedPath
 End Sub
