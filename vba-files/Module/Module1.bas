@@ -337,3 +337,33 @@ Sub SetSheetNamesAsDropdownOptions()
     MsgBox "以下シート名をテンプレートリストに設定しました。" & vbCrLf & vbCrLf & Join(sheetNames, vbCrLf), vbInformation, "完了"
 End Sub
 
+' 行列を入れ替える関数
+Sub TransposeTable()
+    ' 名前が付けられた範囲"varlist"を取得
+    Dim wsMaster As Worksheet
+    Set wsMaster = ActiveSheet
+    Dim tbl As ListObject
+    Set tbl = wsMaster.ListObjects("varlist")
+    Dim rng As Range
+    Set rng = tbl.DataBodyRange
+
+    ' 元のデータを配列に読み込む
+    Dim arrOriginal As Variant
+    arrOriginal = rng.Value
+
+    ' 行と列を入れ替えた新しい配列を作成する
+    Dim arrTransposed As Variant
+    ReDim arrTransposed(1 To UBound(arrOriginal, 2), 1 To UBound(arrOriginal, 1))
+    Dim i As Long
+    Dim j As Long
+    For i = 1 To UBound(arrOriginal, 1)
+        For j = 1 To UBound(arrOriginal, 2)
+            arrTransposed(j, i) = arrOriginal(i, j)
+        Next j
+    Next i
+
+    ' 新しい配列を元の場所に出力するために、範囲を再設定
+    Set rng = rng.Resize(UBound(arrTransposed, 1), UBound(arrTransposed, 2))
+    rng.Clear
+    rng.Value = arrTransposed
+End Sub
