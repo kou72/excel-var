@@ -14,6 +14,10 @@ Sub CreateAndModifySheetsFromVarList()
     Dim outputType As String
     outputType = wsMaster.Range("type").Value
 
+    Dim filePath As String
+    filePath = ThisWorkbook.Names("path").RefersToRange.Value
+    If Not CheckFilePath(filePath, outputType) Then Exit Sub
+
     Dim tbl As ListObject
     Set tbl = wsMaster.ListObjects("varlist")
     
@@ -36,18 +40,42 @@ Sub CreateAndModifySheetsFromVarList()
         If outputType = "textFile" Then
             ProcessAsTextFile wsTemplate, tbl, i, outputName
         Else
-            ProcessAsWorksheet wsTemplate, tbl, i, outputName
+            ProcessAsWorksheet wsTemplate, tbl, i, outputName, filePath
         End If
 
     NextRow:
     Next i
     
     ' マスタシートをアクティブにする
-    wsMaster.Activate
+    ' wsMaster.Activate
 
     ' スクリーン更新をオンに戻す
     Application.ScreenUpdating = True
 End Sub
+
+' filePathが有効なフォルダまたはExcelファイルを指しているか確認する関数
+Function CheckFilePath(filePath As String, outputType As String) As Boolean
+    If outputType = "sheet" Then ' Excelファイルのチェック
+        On Error Resume Next ' エラーハンドラを有効にする
+        Dim wb As Workbook
+        Set wb = Workbooks.Open(filePath) ' filePathを開く
+        On Error GoTo 0 ' エラーハンドラを無効にする
+        If wb Is Nothing Then ' filePathが無効ならエラーメッセージを表示して終了
+            MsgBox "選択されたファイルが無効です。有効なExcelファイルを選択してください。", vbCritical, "エラー"
+            CheckFilePath = False
+        Else ' filePathが有効ならTrueを返す
+            wb.Close False
+            CheckFilePath = True
+        End If
+    ElseIf outputType = "textFile" Then ' フォルダのチェック
+        If Dir(filePath, vbDirectory) = "" Then
+            MsgBox "選択されたパスが無効です。有効なフォルダを選択してください。", vbCritical, "エラー"
+            CheckFilePath = False
+        Else
+            CheckFilePath = True
+        End If
+    End If
+End Function
 
 Sub ProcessAsTextFile(wsTemplate As Worksheet, tbl As ListObject, i As Long, outputName As String)
     Dim rng As Range
@@ -90,31 +118,40 @@ Sub ProcessAsTextFile(wsTemplate As Worksheet, tbl As ListObject, i As Long, out
     textOutput = ""
 End Sub
 
-Sub ProcessAsWorksheet(wsTemplate As Worksheet, tbl As ListObject, i As Long, outputName As String)
+Sub ProcessAsWorksheet(wsTemplate As Worksheet, tbl As ListObject, i As Long, outputName As String, filePath As String)
+    ' ' 指定されたパスのWorkbookを開く
+    Dim wbTarget As Workbook
+    Set wbTarget = Workbooks.Open(filePath)
+    
+    ' 重複しないシート名を見つけるためのループ
+    Dim suffix As Integer
+    suffix = 0
+    Dim newSheetName As String
+    newSheetName = outputName
+    Do While WorksheetExists(wbTarget, newSheetName)
+        suffix = suffix + 1
+        newSheetName = outputName & " (" & suffix & ")"
+    Loop
+    
+    ' シートをコピーして新しいシートを作成し、名前を変更
+    wsTemplate.Copy After:=wbTarget.Sheets(wbTarget.Sheets.Count)
+    wbTarget.Sheets(wbTarget.Sheets.Count).Name = newSheetName
     Dim wsNew As Worksheet
-    Dim rng As Range
-    Dim j As Long
-    Dim replaceFrom As String
-    Dim replaceTo As String
-    
-    ' シートをコピーして新しいシートを作成
-    wsTemplate.Copy After:=ThisWorkbook.Sheets(ThisWorkbook.Sheets.Count)
-    
-    ' 新しいシートを選択して名前を変更
-    ThisWorkbook.Sheets(ThisWorkbook.Sheets.Count).Name = outputName
-    
-    ' 新しいシートを変数にセット
-    Set wsNew = ThisWorkbook.Sheets(outputName)
+    Set wsNew = wbTarget.Sheets(newSheetName)
     
     ' 2列目以降の列をループ
+    Dim j As Long
     For j = 2 To tbl.ListColumns.Count
         ' 変換元と変換先の文字列を取得
+        Dim replaceFrom As String
+        Dim replaceTo As String
         replaceFrom = tbl.DataBodyRange.Cells(1, j).Value
         replaceTo = tbl.DataBodyRange.Cells(i, j).Value
         
         ' 変換元と変換先が空でない場合のみ置換を行う
         If Not IsEmpty(replaceFrom) And Not IsEmpty(replaceTo) Then
             ' シート内の全てのセルを検索し、replaceFromをreplaceToに置換
+            Dim rng As Range
             For Each rng In wsNew.UsedRange
                 If rng.Value <> "" Then
                     rng.Value = Replace(rng.Value, replaceFrom, replaceTo)
@@ -123,6 +160,16 @@ Sub ProcessAsWorksheet(wsTemplate As Worksheet, tbl As ListObject, i As Long, ou
         End If
     Next j
 End Sub
+
+' シートが存在するかどうかを確認するための関数
+Function WorksheetExists(wb As Workbook, wsName As String) As Boolean
+    Dim ws As Worksheet
+    On Error Resume Next
+    Set ws = wb.Sheets(wsName)
+    On Error GoTo 0
+    WorksheetExists = Not ws Is Nothing
+End Function
+
 
 Sub SelectFileOrFolderAndWritePath()
     ' "type"という名前のセルの内容を取得
@@ -142,7 +189,10 @@ Sub SelectFileOrFolderAndWritePath()
 
     ' ダイアログを表示し、選択したパスを取得
     Dim selectedPath As String
-    With fd.Title = "Select Path".AllowMultiSelect = False
+    With fd
+        .Title = "Select Path"
+        .AllowMultiSelect = False
+        
         If .Show = True Then
             selectedPath = .SelectedItems(1)
         End If
