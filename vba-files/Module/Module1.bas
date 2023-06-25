@@ -25,7 +25,9 @@ Sub CreateAndModifySheetsFromVarList()
     msg = "以下の内容で処理を実行します。" & vbCrLf & vbCrLf & _
         "テンプレートシート：" & templateName & vbCrLf & _
         "出力形式：" & outputType & vbCrLf & _
-        "出力先：" & filePath & vbCrLf & vbCrLf & _
+        "出力先：" & filePath & vbCrLf & _
+        "出力数：" & GetOutputCount(tbl) & vbCrLf & _
+        "変数数：" & GetVarCount(tbl) & vbCrLf & vbCrLf & _
         "よろしいですか？"
     If MsgBox(msg, vbYesNo + vbQuestion, "確認") = vbNo Then Exit Sub
 
@@ -67,6 +69,61 @@ Sub CreateAndModifySheetsFromVarList()
     ' スクリーン更新をオンに戻す
     Application.ScreenUpdating = True
 End Sub
+
+' 出力数を取得する関数
+Function GetOutputCount(tbl As ListObject) As Long
+    ' 出力数を初期化
+    GetOutputCount = 0
+
+    ' varlistの各行をループ
+    Dim i As Long
+    For i = 2 To tbl.ListRows.Count
+        ' "無効flag"が空白でない場合、この行の処理をスキップ
+        Dim disableFlag As String
+        disableFlag = tbl.Range.Cells(i, 1).Offset(0, -1).Value
+        If disableFlag <> "" Then
+            GoTo NextRow
+        End If
+
+        ' outputNameが空白またはNothingなら次の行へ
+        Dim outputName As String
+        outputName = tbl.ListColumns(1).DataBodyRange.Cells(i).Value
+        If IsEmpty(outputName) Or outputName = "" Then
+            GoTo NextRow
+        End If
+        
+        ' 出力数をカウント
+        GetOutputCount = GetOutputCount + 1
+
+    NextRow:
+    Next i
+End Function
+
+' 変数数を取得する関数
+Function GetVarCount(tbl As ListObject) As Long
+    ' 変数数を初期化
+    GetVarCount = 0
+
+    ' varlistの各行をループ
+    Dim j As Long
+    For j = 2 To tbl.ListColumns.Count
+        ' "無効flag"が空白でない場合、この列の処理をスキップ
+        Dim disableFlag As String
+        disableFlag = tbl.DataBodyRange.Cells(1, j).Offset(-1, 0).Value
+        If disableFlag <> "" Then
+            GoTo NextColumn
+        End If
+
+        ' 変換元が空白またはNothingなら次の列へ
+        Dim replaceFrom As String
+        replaceFrom = tbl.DataBodyRange.Cells(1, j).Value
+
+        ' 変数数をカウント
+        GetVarCount = GetVarCount + 1
+
+    NextColumn:
+    Next j
+End Function
 
 ' filePathが有効なフォルダまたはExcelファイルを指しているか確認する関数
 Function CheckFilePath(filePath As String, outputType As String) As Boolean
