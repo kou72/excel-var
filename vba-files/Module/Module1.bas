@@ -117,6 +117,9 @@ Function GetVarCount(tbl As ListObject) As Long
         ' 変換元が空白またはNothingなら次の列へ
         Dim replaceFrom As String
         replaceFrom = tbl.DataBodyRange.Cells(1, j).Value
+        If IsEmpty(replaceFrom) Or replaceFrom = "" Then
+            GoTo NextColumn
+        End If
 
         ' 変数数をカウント
         GetVarCount = GetVarCount + 1
@@ -339,6 +342,9 @@ End Sub
 
 ' 行列を入れ替える関数
 Sub TransposeTable()
+    ' 実行するか確認
+    If MsgBox("テーブルの行と列を入れ替えます。よろしいですか？", vbYesNo + vbQuestion, "確認") = vbNo Then Exit Sub
+
     ' 名前が付けられた範囲"varlist"を取得
     Dim wsMaster As Worksheet
     Set wsMaster = ActiveSheet
@@ -362,8 +368,28 @@ Sub TransposeTable()
         Next j
     Next i
 
-    ' 新しい配列を元の場所に出力するために、範囲を再設定
-    Set rng = rng.Resize(UBound(arrTransposed, 1), UBound(arrTransposed, 2))
-    rng.Clear
-    rng.Value = arrTransposed
+    ' 新しい行数・列数に合わせてテーブルをリサイズ
+    tbl.Resize tbl.Range.Resize(tbl.ListColumns.Count, tbl.ListRows.Count)
+
+    ' 新しい配列を書き込む
+    For i = 1 To UBound(arrTransposed, 1)
+        For j = 1 To UBound(arrTransposed, 2)
+            tbl.Range.Cells(i, j).Value = arrTransposed(i, j)
+        Next j
+    Next i
+
+    ' directionセルの値を取得
+    Dim rngDirection As Range
+    Set rngDirection = wsMaster.Range("direction")
+    
+    ' directionセルの値に応じて値を書き換え
+    If rngDirection.Value = "横方向" Then
+        rngDirection.Value = "縦方向"
+    ElseIf rngDirection.Value = "縦方向" Then
+        rngDirection.Value = "横方向"
+    Else
+        ' directionセルの値が想定外の場合はエラーメッセージを表示
+        MsgBox "directionセルの値が想定外です。値を確認してください。"
+    End If
+
 End Sub
