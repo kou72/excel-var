@@ -38,7 +38,7 @@ Sub CreateAndModifySheetsFromVarList()
         Set wsTemplate = ThisWorkbook.Sheets(templateName)
         
         If outputType = "textFile" Then
-            ProcessAsTextFile wsTemplate, tbl, i, outputName
+            ProcessAsTextFile wsTemplate, tbl, i, outputName, filePath
         Else
             ProcessAsWorksheet wsTemplate, tbl, i, outputName, filePath
         End If
@@ -77,15 +77,10 @@ Function CheckFilePath(filePath As String, outputType As String) As Boolean
     End If
 End Function
 
-Sub ProcessAsTextFile(wsTemplate As Worksheet, tbl As ListObject, i As Long, outputName As String)
-    Dim rng As Range
-    Dim j As Long
-    Dim replaceFrom As String
-    Dim replaceTo As String
-    Dim textOutput As String
-    Dim fileName As String
-    
+Sub ProcessAsTextFile(wsTemplate As Worksheet, tbl As ListObject, i As Long, outputName As String, filePath As String)
     ' テンプレートシートの内容をテキストに変換
+    Dim rng As Range
+    Dim textOutput As String
     For Each rng In wsTemplate.UsedRange
         textOutput = textOutput & rng.Value & vbTab
         If rng.Column = wsTemplate.UsedRange.Columns.Count Then
@@ -94,8 +89,11 @@ Sub ProcessAsTextFile(wsTemplate As Worksheet, tbl As ListObject, i As Long, out
     Next rng
     
     ' 2列目以降の列をループ
+    Dim j As Long
     For j = 2 To tbl.ListColumns.Count
         ' 変換元と変換先の文字列を取得
+        Dim replaceFrom As String
+        Dim replaceTo As String
         replaceFrom = tbl.DataBodyRange.Cells(1, j).Value
         replaceTo = tbl.DataBodyRange.Cells(i, j).Value
         
@@ -107,7 +105,18 @@ Sub ProcessAsTextFile(wsTemplate As Worksheet, tbl As ListObject, i As Long, out
     Next j
     
     ' テキストファイル名を設定
-    fileName = ThisWorkbook.Path & "\" & outputName
+    Dim fileName As String
+    Dim uniqueNum As Integer
+    uniqueNum = 0
+    fileName = filePath & "\" & outputName
+    
+    ' ファイル名が重複している場合は通し番号を付与
+    While Dir(fileName) <> ""
+        uniqueNum = uniqueNum + 1
+        Dim arr() As String
+        arr = Split(outputName, ".")
+        fileName = filePath & "\" & arr(0) & "(" & uniqueNum & ")." & arr(1)
+    Wend
     
     ' テキストファイルに出力
     Open fileName For Output As #1
@@ -118,8 +127,9 @@ Sub ProcessAsTextFile(wsTemplate As Worksheet, tbl As ListObject, i As Long, out
     textOutput = ""
 End Sub
 
+
 Sub ProcessAsWorksheet(wsTemplate As Worksheet, tbl As ListObject, i As Long, outputName As String, filePath As String)
-    ' ' 指定されたパスのWorkbookを開く
+    ' 指定されたパスのWorkbookを開く
     Dim wbTarget As Workbook
     Set wbTarget = Workbooks.Open(filePath)
     
@@ -203,3 +213,44 @@ Sub SelectFileOrFolderAndWritePath()
     Set rng = ThisWorkbook.Names("path").RefersToRange
     rng.Value = selectedPath
 End Sub
+
+Sub SetSheetNamesAsDropdownOptions()
+    ' シートの数を取得
+    Dim sheetCount As Integer
+    sheetCount = ThisWorkbook.Sheets.Count
+    
+    ' シート名を保持するための配列を作成
+    Dim sheetNames() As String
+    ReDim sheetNames(1 To sheetCount - 1)  ' アクティブシートを除いた数で配列を初期化
+    
+    ' 各シートの名前を配列に格納
+    Dim i As Integer
+    Dim index As Integer
+    index = 1
+    For i = 1 To sheetCount
+        If ThisWorkbook.Sheets(i).Name <> ActiveSheet.Name Then  ' アクティブシート以外の名前を追加
+            sheetNames(index) = ThisWorkbook.Sheets(i).Name
+            index = index + 1
+        End If
+    Next i
+    
+    ' データ検証リストのセルを指定
+    Dim rng As Range
+    Set rng = ActiveSheet.Range("template")  ' アクティブシートの"template"セルを指定
+    
+    ' すでにデータ検証が設定されている場合はそれを削除
+    rng.Validation.Delete
+    
+    ' データ検証のリストを設定
+    Dim strList As String
+    strList = Join(sheetNames, ",")  ' 配列をカンマで連結した文字列に変換
+    rng.Validation.Add Type:=xlValidateList, Formula1:=strList
+
+    ' 配列をメッセージボックスで表示
+    ' MsgBox Join(sheetNames, vbCrLf), vbInformation, "完了"
+    MsgBox "以下シート名をテンプレートのリストに設定しました。" & vbCrLf & vbCrLf & Join(sheetNames, vbCrLf), vbInformation, "完了"
+
+    ' データ検証のリストを通知
+    ' MsgBox "以下シート名をテンプレートのリストに設定しました。" & sheetNames , vbInformation, "完了"
+End Sub
+
