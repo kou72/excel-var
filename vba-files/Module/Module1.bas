@@ -7,16 +7,14 @@ Sub CreateAndModifySheetsFromVarList()
     ' マスタ情報をセット
     Dim wsMaster As Worksheet
     Set wsMaster = ActiveSheet
-
     Dim templateName As String
     templateName = wsMaster.Range("template").Value
-
     Dim outputType As String
     outputType = wsMaster.Range("type").Value
-
     Dim filePath As String
     filePath = ThisWorkbook.Names("path").RefersToRange.Value
-
+    Dim tableDirection As String
+    tableDirection = ThisWorkbook.Names("direction").RefersToRange.Value
     Dim tbl As ListObject
     Set tbl = wsMaster.ListObjects("varlist")
 
@@ -26,106 +24,183 @@ Sub CreateAndModifySheetsFromVarList()
         "テンプレートシート：" & templateName & vbCrLf & _
         "出力形式：" & outputType & vbCrLf & _
         "出力先：" & filePath & vbCrLf & _
-        "出力数：" & GetOutputCount(tbl) & vbCrLf & _
-        "変数数：" & GetVarCount(tbl) & vbCrLf & vbCrLf & _
+        "出力数：" & GetOutputCount(tbl, tableDirection) & vbCrLf & _
+        "変数数：" & GetVarCount(tbl, tableDirection) & vbCrLf & _
         "よろしいですか？"
     If MsgBox(msg, vbYesNo + vbQuestion, "確認") = vbNo Then Exit Sub
 
     ' 出力先が有効なフォルダまたはExcelファイルを指しているか確認
     If Not CheckFilePath(filePath, outputType) Then Exit Sub
 
-    ' varlistの各行をループ
+    ' テーブルの方向で処理を分岐
     Dim i As Long
-    For i = 2 To tbl.ListRows.Count
-        ' "無効flag"が空白でない場合、この行の処理をスキップ
-        Dim disableFlag As String
-        disableFlag = tbl.Range.Cells(i, 1).Offset(0, -1).Value
-        If disableFlag <> "" Then
-            GoTo NextRow
-        End If
+    Dim disableFlag As String
+    Dim outputName As String
+    Dim wsTemplate As Worksheet
+    If tableDirection = "縦方向" Then
+        ' varlistの各列をループ
+        For i = 2 To tbl.ListColumns.Count
+            ' "無効flag"が空白でない場合、この列の処理をスキップ
+            disableFlag = tbl.Range.Cells(1, i).Offset(-1, 0).Value
+            If disableFlag <> "" Then
+                GoTo NextColumn
+            End If
 
-        ' テンプレートシート名と出力名を取得
-        Dim outputName As String
-        outputName = tbl.ListColumns(1).DataBodyRange.Cells(i).Value
-        
-        ' outputNameが空白またはNothingなら次の行へ
-        If IsEmpty(outputName) Or outputName = "" Then
-            GoTo NextRow
-        End If
-        
-        ' テンプレートシートを指定
-        Dim wsTemplate As Worksheet
-        Set wsTemplate = ThisWorkbook.Sheets(templateName)
-        
-        If outputType = "textFile" Then
-            ProcessAsTextFile wsTemplate, tbl, i, outputName, filePath
-        Else
-            ProcessAsWorksheet wsTemplate, tbl, i, outputName, filePath
-        End If
+            ' テンプレートシート名と出力名を取得
+            outputName = tbl.ListColumns(i).DataBodyRange.Cells(1).Value
 
-    NextRow:
-    Next i
+            ' outputNameが空白またはNothingなら次の列へ
+            If IsEmpty(outputName) Or outputName = "" Then
+                GoTo NextColumn
+            End If
+
+            ' テンプレートシートを指定
+            Set wsTemplate = ThisWorkbook.Sheets(templateName)
+            
+            If outputType = "textFile" Then
+                ProcessAsTextFile wsTemplate, tbl, i, outputName, filePath, tableDirection
+            Else
+                ProcessAsWorksheet wsTemplate, tbl, i, outputName, filePath, tableDirection
+            End If
+        NextColumn:
+        Next i
+    Else
+        ' varlistの各行をループ
+        For i = 2 To tbl.ListRows.Count
+            ' "無効flag"が空白でない場合、この行の処理をスキップ
+            disableFlag = tbl.Range.Cells(i, 1).Offset(0, -1).Value
+            If disableFlag <> "" Then
+                GoTo NextRow
+            End If
+
+            ' テンプレートシート名と出力名を取得
+            outputName = tbl.ListColumns(1).DataBodyRange.Cells(i).Value
+            
+            ' outputNameが空白またはNothingなら次の行へ
+            If IsEmpty(outputName) Or outputName = "" Then
+                GoTo NextRow
+            End If
+
+            ' テンプレートシートを指定
+            Set wsTemplate = ThisWorkbook.Sheets(templateName)
+            
+            If outputType = "textFile" Then
+                ProcessAsTextFile wsTemplate, tbl, i, outputName, filePath, tableDirection
+            Else
+                ProcessAsWorksheet wsTemplate, tbl, i, outputName, filePath, tableDirection
+            End If
+
+        NextRow:
+        Next i
+
+    End If
 
     ' スクリーン更新をオンに戻す
     Application.ScreenUpdating = True
 End Sub
 
 ' 出力数を取得する関数
-Function GetOutputCount(tbl As ListObject) As Long
+Function GetOutputCount(tbl As ListObject, tableDirection As String) As Long
     ' 出力数を初期化
     GetOutputCount = 0
 
-    ' varlistの各行をループ
+    ' テーブルの方向で処理を分岐
     Dim i As Long
-    For i = 2 To tbl.ListRows.Count
-        ' "無効flag"が空白でない場合、この行の処理をスキップ
-        Dim disableFlag As String
-        disableFlag = tbl.Range.Cells(i, 1).Offset(0, -1).Value
-        If disableFlag <> "" Then
-            GoTo NextRow
-        End If
+    Dim disableFlag As String
+    Dim outputName As String
+    If tableDirection = "縦方向" Then
+        ' varlistの各行をループ
+        For i = 2 To tbl.ListColumns.Count
+            ' "無効flag"が空白でない場合、この列の処理をスキップ
+            disableFlag = tbl.Range.Cells(1, i).Offset(-1, 0).Value
+            If disableFlag <> "" Then
+                GoTo NextColumn
+            End If
 
-        ' outputNameが空白またはNothingなら次の行へ
-        Dim outputName As String
-        outputName = tbl.ListColumns(1).DataBodyRange.Cells(i).Value
-        If IsEmpty(outputName) Or outputName = "" Then
-            GoTo NextRow
-        End If
-        
-        ' 出力数をカウント
-        GetOutputCount = GetOutputCount + 1
+            ' outputNameが空白またはNothingなら次の列へ
+            outputName = tbl.ListColumns(i).DataBodyRange.Cells(1).Value
+            If IsEmpty(outputName) Or outputName = "" Then
+                GoTo NextColumn
+            End If
+            
+            ' 出力数をカウント
+            GetOutputCount = GetOutputCount + 1
 
-    NextRow:
-    Next i
+        NextColumn:
+        Next i
+    Else
+        ' varlistの各行をループ
+        For i = 2 To tbl.ListRows.Count
+            ' "無効flag"が空白でない場合、この行の処理をスキップ
+            disableFlag = tbl.Range.Cells(i, 1).Offset(0, -1).Value
+            If disableFlag <> "" Then
+                GoTo NextRow
+            End If
+
+            ' outputNameが空白またはNothingなら次の行へ
+            outputName = tbl.ListColumns(1).DataBodyRange.Cells(i).Value
+            If IsEmpty(outputName) Or outputName = "" Then
+                GoTo NextRow
+            End If
+            
+            ' 出力数をカウント
+            GetOutputCount = GetOutputCount + 1
+
+        NextRow:
+        Next i
+    End If
 End Function
 
 ' 変数数を取得する関数
-Function GetVarCount(tbl As ListObject) As Long
+Function GetVarCount(tbl As ListObject, tableDirection As String) As Long
     ' 変数数を初期化
     GetVarCount = 0
 
-    ' varlistの各行をループ
+    ' テーブルの方向で処理を分岐
     Dim j As Long
-    For j = 2 To tbl.ListColumns.Count
-        ' "無効flag"が空白でない場合、この列の処理をスキップ
-        Dim disableFlag As String
-        disableFlag = tbl.DataBodyRange.Cells(1, j).Offset(-1, 0).Value
-        If disableFlag <> "" Then
-            GoTo NextColumn
-        End If
+    Dim disableFlag As String
+    Dim replaceFrom As String
+    If tableDirection = "縦方向" Then
+        ' varlistの各行をループ
+        For j = 2 To tbl.ListRows.Count
+            ' "無効flag"が空白でない場合、この行の処理をスキップ
+            disableFlag = tbl.Range.Cells(j, 1).Offset(0, -1).Value
+            If disableFlag <> "" Then
+                GoTo NextRow
+            End If
 
-        ' 変換元が空白またはNothingなら次の列へ
-        Dim replaceFrom As String
-        replaceFrom = tbl.DataBodyRange.Cells(1, j).Value
-        If IsEmpty(replaceFrom) Or replaceFrom = "" Then
-            GoTo NextColumn
-        End If
+            ' 変換元が空白またはNothingなら次の行へ
+            replaceFrom = tbl.DataBodyRange.Cells(j, 1).Value
+            If IsEmpty(replaceFrom) Or replaceFrom = "" Then
+                GoTo NextRow
+            End If
 
-        ' 変数数をカウント
-        GetVarCount = GetVarCount + 1
+            ' 変数数をカウント
+            GetVarCount = GetVarCount + 1
 
-    NextColumn:
-    Next j
+        NextRow:
+        Next j
+    Else
+        ' varlistの各行をループ
+        For j = 2 To tbl.ListColumns.Count
+            ' "無効flag"が空白でない場合、この列の処理をスキップ
+            disableFlag = tbl.DataBodyRange.Cells(1, j).Offset(-1, 0).Value
+            If disableFlag <> "" Then
+                GoTo NextColumn
+            End If
+
+            ' 変換元が空白またはNothingなら次の列へ
+            replaceFrom = tbl.DataBodyRange.Cells(1, j).Value
+            If IsEmpty(replaceFrom) Or replaceFrom = "" Then
+                GoTo NextColumn
+            End If
+
+            ' 変数数をカウント
+            GetVarCount = GetVarCount + 1
+
+        NextColumn:
+        Next j
+    End If
 End Function
 
 ' filePathが有効なフォルダまたはExcelファイルを指しているか確認する関数
@@ -152,7 +227,7 @@ Function CheckFilePath(filePath As String, outputType As String) As Boolean
     End If
 End Function
 
-Sub ProcessAsTextFile(wsTemplate As Worksheet, tbl As ListObject, i As Long, outputName As String, filePath As String)
+Sub ProcessAsTextFile(wsTemplate As Worksheet, tbl As ListObject, i As Long, outputName As String, filePath As String, tableDirection As String)
     ' テンプレートシートの内容をテキストに変換
     Dim rng As Range
     Dim textOutput As String
@@ -163,30 +238,54 @@ Sub ProcessAsTextFile(wsTemplate As Worksheet, tbl As ListObject, i As Long, out
         End If
     Next rng
     
-    ' 2列目以降の列をループ
+    ' テーブルの方向で処理を分岐
     Dim j As Long
-    For j = 2 To tbl.ListColumns.Count
-        ' "無効flag"が空白でない場合、この列の処理をスキップ
-        Dim disableFlag As String
-        disableFlag = tbl.DataBodyRange.Cells(1, j).Offset(-1, 0).Value
-        If disableFlag <> "" Then
-            GoTo NextColumn
-        End If
+    Dim disableFlag As String
+    Dim replaceFrom As String
+    Dim replaceTo As String
+    If tableDirection = "縦方向" Then
+        ' 2列目以降の行をループ
+        For j = 2 To tbl.ListRows.Count
+            ' "無効flag"が空白でない場合、この行の処理をスキップ
+            disableFlag = tbl.Range.Cells(j, 1).Offset(0, -1).Value
+            If disableFlag <> "" Then
+                GoTo NextRow
+            End If
+            
+            ' 変換元と変換先の文字列を取得
+            replaceFrom = tbl.DataBodyRange.Cells(j, 1).Value
+            replaceTo = tbl.DataBodyRange.Cells(j, i).Value
+            
+            ' 変換元と変換先が空でない場合のみ置換を行う
+            If Not IsEmpty(replaceFrom) And Not IsEmpty(replaceTo) Then
+                ' テキスト内のreplaceFromをreplaceToに置換
+                textOutput = Replace(textOutput, replaceFrom, replaceTo)
+            End If
+        NextRow:
+        Next j
+    Else
+        ' 2列目以降の列をループ
+        For j = 2 To tbl.ListColumns.Count
+            ' "無効flag"が空白でない場合、この列の処理をスキップ
+            disableFlag = tbl.DataBodyRange.Cells(1, j).Offset(-1, 0).Value
+            If disableFlag <> "" Then
+                GoTo NextColumn
+            End If
+            
+            ' 変換元と変換先の文字列を取得
+            replaceFrom = tbl.DataBodyRange.Cells(1, j).Value
+            replaceTo = tbl.DataBodyRange.Cells(i, j).Value
+            
+            ' 変換元と変換先が空でない場合のみ置換を行う
+            If Not IsEmpty(replaceFrom) And Not IsEmpty(replaceTo) Then
+                ' テキスト内のreplaceFromをreplaceToに置換
+                textOutput = Replace(textOutput, replaceFrom, replaceTo)
+            End If
+        NextColumn:
+        Next j
+
+    End If
         
-        ' 変換元と変換先の文字列を取得
-        Dim replaceFrom As String
-        Dim replaceTo As String
-        replaceFrom = tbl.DataBodyRange.Cells(1, j).Value
-        replaceTo = tbl.DataBodyRange.Cells(i, j).Value
-        
-        ' 変換元と変換先が空でない場合のみ置換を行う
-        If Not IsEmpty(replaceFrom) And Not IsEmpty(replaceTo) Then
-            ' テキスト内のreplaceFromをreplaceToに置換
-            textOutput = Replace(textOutput, replaceFrom, replaceTo)
-        End If
-    NextColumn:
-    Next j
-    
     ' テキストファイル名を設定
     Dim fileName As String
     Dim uniqueNum As Integer
@@ -210,7 +309,7 @@ Sub ProcessAsTextFile(wsTemplate As Worksheet, tbl As ListObject, i As Long, out
     textOutput = ""
 End Sub
 
-Sub ProcessAsWorksheet(wsTemplate As Worksheet, tbl As ListObject, i As Long, outputName As String, filePath As String)
+Sub ProcessAsWorksheet(wsTemplate As Worksheet, tbl As ListObject, i As Long, outputName As String, filePath As String, tableDirection As String)
     ' 指定されたパスのWorkbookを開く
     Dim wbTarget As Workbook
     Set wbTarget = Workbooks.Open(filePath)
@@ -231,34 +330,62 @@ Sub ProcessAsWorksheet(wsTemplate As Worksheet, tbl As ListObject, i As Long, ou
     Dim wsNew As Worksheet
     Set wsNew = wbTarget.Sheets(newSheetName)
     
-    ' 2列目以降の列をループ
+    
+    ' テーブルの方向で処理を分岐
     Dim j As Long
-    For j = 2 To tbl.ListColumns.Count
-        ' "無効flag"が空白でない場合、この列の処理をスキップ
-        Dim disableFlag As String
-        disableFlag = tbl.DataBodyRange.Cells(1, j).Offset(-1, 0).Value
-        If disableFlag <> "" Then
-            GoTo NextColumn
-        End If
+    Dim disableFlag As String
+    Dim replaceFrom As String
+    Dim replaceTo As String
+    Dim rng As Range
+    If tableDirection = "縦方向" Then
+        ' 2列目以降の行をループ
+        For j = 2 To tbl.ListRows.Count
+            ' "無効flag"が空白でない場合、この行の処理をスキップ
+            disableFlag = tbl.Range.Cells(j, 1).Offset(0, -1).Value
+            If disableFlag <> "" Then
+                GoTo NextRow
+            End If
 
-        ' 変換元と変換先の文字列を取得
-        Dim replaceFrom As String
-        Dim replaceTo As String
-        replaceFrom = tbl.DataBodyRange.Cells(1, j).Value
-        replaceTo = tbl.DataBodyRange.Cells(i, j).Value
-        
-        ' 変換元と変換先が空でない場合のみ置換を行う
-        If Not IsEmpty(replaceFrom) And Not IsEmpty(replaceTo) Then
-            ' シート内の全てのセルを検索し、replaceFromをreplaceToに置換
-            Dim rng As Range
-            For Each rng In wsNew.UsedRange
-                If rng.Value <> "" Then
-                    rng.Value = Replace(rng.Value, replaceFrom, replaceTo)
-                End If
-            Next rng
-        End If
-    NextColumn:
-    Next j
+            ' 変換元と変換先の文字列を取得
+            replaceFrom = tbl.DataBodyRange.Cells(j, 1).Value
+            replaceTo = tbl.DataBodyRange.Cells(j, i).Value
+
+            ' 変換元と変換先が空でない場合のみ置換を行う
+            If Not IsEmpty(replaceFrom) And Not IsEmpty(replaceTo) Then
+                ' シート内の全てのセルを検索し、replaceFromをreplaceToに置換
+                For Each rng In wsNew.UsedRange
+                    If rng.Value <> "" Then
+                        rng.Value = Replace(rng.Value, replaceFrom, replaceTo)
+                    End If
+                Next rng
+            End If
+        NextRow:
+        Next j
+    Else
+        ' 2列目以降の列をループ
+        For j = 2 To tbl.ListColumns.Count
+            ' "無効flag"が空白でない場合、この列の処理をスキップ
+            disableFlag = tbl.DataBodyRange.Cells(1, j).Offset(-1, 0).Value
+            If disableFlag <> "" Then
+                GoTo NextColumn
+            End If
+
+            ' 変換元と変換先の文字列を取得
+            replaceFrom = tbl.DataBodyRange.Cells(1, j).Value
+            replaceTo = tbl.DataBodyRange.Cells(i, j).Value
+            
+            ' 変換元と変換先が空でない場合のみ置換を行う
+            If Not IsEmpty(replaceFrom) And Not IsEmpty(replaceTo) Then
+                ' シート内の全てのセルを検索し、replaceFromをreplaceToに置換
+                For Each rng In wsNew.UsedRange
+                    If rng.Value <> "" Then
+                        rng.Value = Replace(rng.Value, replaceFrom, replaceTo)
+                    End If
+                Next rng
+            End If
+        NextColumn:
+        Next j
+    End If
 End Sub
 
 ' シートが存在するかどうかを確認するための関数
